@@ -1,0 +1,4 @@
+apicli
+bin/
+*.test
+coverage.out
