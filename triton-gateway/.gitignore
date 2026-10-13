@@ -1,0 +1,38 @@
+# Environment & secrets — never commit real credentials
+.env
+.env.local
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Go
+gateway/bin/
+gateway/dist/
+*.test
+*.out
+
+# Model artifacts (large binaries live in S3 / registry, not git)
+model_pipeline/model_repository/**/model.onnx
+model_pipeline/*.onnx
+model_pipeline/*.data
+!model_pipeline/model_repository/text_embeddings/1/.gitkeep
+
+# Build & benchmark output
+build/
+dist/
+benchmarks/results/
+*.csv.tmp
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store

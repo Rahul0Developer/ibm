@@ -1,0 +1,126 @@
+# Triton Inference Server on EKS with GPU resource limits.
+#
+# Production pattern (per Quora's Triton-on-EKS post): Triton's native S3 loader
+# adds startup latency and flakiness, so a dedicated init container pre-pulls
+# the model repository into an emptyDir volume shared with the server.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: triton-serving
+  namespace: ml-serving
+  labels:
+    app.kubernetes.io/name: triton-serving
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: triton-serving
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: triton-serving
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8002"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: triton-serving
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        - name: model-downloader
+          image: amazon/aws-cli:2.15.30
+          # IRSA (EKS Pod Identity) supplies credentials — never bake keys into manifests.
+          command:
+            - aws
+            - s3
+            - sync
+            - s3://your-model-bucket/text_embeddings/
+            - /mnt/models/text_embeddings/
+          env:
+            - name: AWS_REGION
+              value: us-east-1
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: model-store
+              mountPath: /mnt/models
+      containers:
+        - name: triton-server
+          image: nvcr.io/nvidia/tritonserver:24.02-py3
+          args:
+            - tritonserver
+            - --model-repository=/mnt/models
+            - --strict-model-config=true
+            - --log-verbose=0
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+              cpu: "4"
+              memory: 8Gi
+            requests:
+              nvidia.com/gpu: 1
+              cpu: "2"
+              memory: 4Gi
+          ports:
+            - containerPort: 8001
+              name: grpc
+            - containerPort: 8002
+              name: metrics
+            - containerPort: 8000
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /v2/health/ready
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /v2/health/live
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          volumeMounts:
+            - name: model-store
+              mountPath: /mnt/models
+      volumes:
+        - name: model-store
+          emptyDir:
+            sizeLimit: 4Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: triton-serving
+  namespace: ml-serving
+  labels:
+    app.kubernetes.io/name: triton-serving
+spec:
+  selector:
+    app: triton-serving
+  ports:
+    - name: grpc
+      port: 8001
+      targetPort: grpc
+    - name: metrics
+      port: 8002
+      targetPort: metrics
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: triton-serving
+  namespace: ml-serving
+  annotations:
+    # Replace with the ARN of an IAM role trusted by your cluster (IRSA).
+    eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/triton-model-reader

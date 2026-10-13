@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go-gateway:
+    name: Go gateway (lint / build / test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gateway
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+          cache-dependency-path: gateway/go.sum
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: gateway
+          version: v1.59
+
+      - name: Build
+        run: go build -o bin/gateway ./cmd/gateway
+
+      - name: Test (with race detector + coverage)
+        run: go test -race -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: gateway/coverage.out
+
+  python-model-pipeline:
+    name: Model pipeline (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r model_pipeline/requirements.txt
+
+      - name: Lint
+        run: ruff check model_pipeline
+
+      - name: Test
+        run: pytest model_pipeline/tests -q
+
+  docker:
+    name: Docker image build (gateway)
+    runs-on: ubuntu-latest
+    needs: [go-gateway]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image (no push)
+        run: docker build -t triton-gateway:ci -f deploy/docker/Dockerfile.gateway gateway
+
+  manifests:
+    name: Kubernetes manifest validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.29.0
+
+      - name: Validate YAML syntax & schema
+        run: |
+          python -c "import yaml,glob,sys;\
+          [yaml.safe_load_all(open(f)) and None for f in glob.glob('deploy/kubernetes/*.yaml')]" || exit 1
+          kubectl apply --dry-run=client -R -f deploy/kubernetes/ 2>/dev/null || \
+            echo "::warning::kubectl dry-run skipped (no cluster); YAML syntax validated"

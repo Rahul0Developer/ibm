@@ -1,0 +1,19 @@
+# Multi-stage build for the Triton inference gateway.
+# Stage 1: compile a fully static binary; Stage 2: minimal distroless runtime.
+
+FROM golang:1.21-alpine AS build
+WORKDIR /src
+
+# Cache module downloads separately from source changes.
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" \
+    -o /out/gateway ./cmd/gateway
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /out/gateway /gateway
+USER nonroot:nonroot
+EXPOSE 8080
+ENTRYPOINT ["/gateway"]

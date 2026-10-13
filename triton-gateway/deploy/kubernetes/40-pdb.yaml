@@ -1,0 +1,23 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: triton-serving-pdb
+  namespace: ml-serving
+spec:
+  # Never let a node drain take more than one GPU pod at a time; model reload
+  # (init-container S3 sync + ONNX load) takes ~40s per pod.
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: triton-serving
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gateway-pdb
+  namespace: ml-serving
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: gateway

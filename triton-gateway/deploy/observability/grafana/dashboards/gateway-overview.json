@@ -1,0 +1,113 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "name": "SLA",
+        "value": "p99 < 30ms end-to-end; GPU duty cycle target >= 75%",
+        "builtin": false
+      }
+    ]
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "title": "Triton Gateway — Latency & GPU Utilization",
+  "uid": "triton-gateway-overview",
+  "tags": ["ml-serving", "triton", "gpu"],
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Gateway p99 latency (SLA 30ms)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "lineWidth": 2 } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "p99",
+          "expr": "histogram_quantile(0.99, sum(rate(gateway_http_request_duration_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p99"
+        },
+        {
+          "refId": "p95",
+          "expr": "histogram_quantile(0.95, sum(rate(gateway_http_request_duration_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "p50",
+          "expr": "histogram_quantile(0.50, sum(rate(gateway_http_request_duration_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p50"
+        }
+      ],
+      "thresholds": [
+        { "colorMode": "critical", "op": "gt", "value": 0.03, "fill": true }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Triton queue delay p99 (batching window budget 5ms)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "µs" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "queue",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(nvrx_infer_stats_latency_queue_bucket[1m])))",
+          "legendFormat": "queue p99"
+        },
+        {
+          "refId": "compute",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(nvrx_infer_stats_latency_compute_bucket[1m])))",
+          "legendFormat": "compute p99"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "GPU utilization (DCGM) — target >= 75%",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "percent", "max": 100 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "util",
+          "expr": "DCGM_FI_DEV_GPU_UTIL",
+          "legendFormat": "GPU {{gpu}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Request rate & outcomes",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "ok",
+          "expr": "sum(rate(gateway_http_requests_total{outcome=\"ok\"}[1m]))",
+          "legendFormat": "ok"
+        },
+        {
+          "refId": "deadline",
+          "expr": "sum(rate(gateway_http_requests_total{outcome=\"deadline\"}[1m]))",
+          "legendFormat": "deadline"
+        },
+        {
+          "refId": "overloaded",
+          "expr": "sum(rate(gateway_http_requests_total{outcome=\"overloaded\"}[1m]))",
+          "legendFormat": "shed (overloaded)"
+        },
+        {
+          "refId": "upstream",
+          "expr": "sum(rate(gateway_http_requests_total{outcome=\"upstream\"}[1m]))",
+          "legendFormat": "upstream"
+        }
+      ]
+    }
+  ]
+}

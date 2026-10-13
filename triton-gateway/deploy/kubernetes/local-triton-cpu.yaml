@@ -1,0 +1,64 @@
+# CPU-only Triton for local Kind testing (no NVIDIA GPU required).
+# Differences from the production manifest (10-triton-deployment.yaml):
+#   * no nvidia.com/gpu resource requests/limits
+#   * models copied in with `kubectl cp` instead of the S3 init container
+#   * strict-model-config disabled so the FP32/CPU variant loads without edits
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: triton-serving
+  namespace: ml-serving
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: triton-serving
+  template:
+    metadata:
+      labels:
+        app: triton-serving
+    spec:
+      containers:
+        - name: triton-server
+          image: nvcr.io/nvidia/tritonserver:24.02-py3
+          args:
+            - tritonserver
+            - --model-repository=/mnt/models
+            - --strict-model-config=false
+            - --log-verbose=0
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          ports:
+            - containerPort: 8000
+              name: http
+            - containerPort: 8001
+              name: grpc
+            - containerPort: 8002
+              name: metrics
+          readinessProbe:
+            httpGet: { path: /v2/health/ready, port: 8000 }
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          volumeMounts:
+            - name: model-store
+              mountPath: /mnt/models
+      volumes:
+        - name: model-store
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: triton-serving
+  namespace: ml-serving
+spec:
+  selector:
+    app: triton-serving
+  ports:
+    - { name: grpc, port: 8001, targetPort: 8001 }
+    - { name: metrics, port: 8002, targetPort: 8002 }

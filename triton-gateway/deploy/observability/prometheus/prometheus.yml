@@ -1,0 +1,19 @@
+# Minimal Prometheus scrape config for local / non-Helm deployments.
+# In production use the kube-prometheus-stack chart + ServiceMonitors instead.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: triton
+    static_configs:
+      - targets: ["localhost:8002"]
+
+  - job_name: gateway
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["localhost:8080"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
