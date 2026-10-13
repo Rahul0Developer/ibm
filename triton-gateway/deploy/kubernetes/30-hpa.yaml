@@ -1,0 +1,62 @@
+# Horizontal Pod Autoscaling for both tiers.
+#
+# Gateway scales on its own request rate metric; Triton scales on GPU queue
+# pressure so we add replicas exactly when the dynamic-batch queue backs up.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gateway-hpa
+  namespace: ml-serving
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: inference-gateway
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 120
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: triton-hpa
+  namespace: ml-serving
+  annotations:
+    note: >
+      Requires a custom-metrics adapter (Prometheus Adapter) exposing
+      nvrx_infer_stats_latency_queue_p99 microsecond samples as an External metric.
+      See docs/OBSERVABILITY.md for the PrometheusAdapter config.
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: triton-serving
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    # Scale out when p99 queue delay exceeds ~5 ms (the batching window budget).
+    - type: Pods
+      pods:
+        metric:
+          name: triton_queue_delay_p99_ms
+        target:
+          type: AverageValue
+          averageValue: "5"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300

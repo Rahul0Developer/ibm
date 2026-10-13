@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package inference;
+
+option go_package = "github.com/your-org/triton-gateway/internal/pb;pb";
+
+// Minimal, wire-compatible subset of NVIDIA Triton's GRPCInferenceService.
+// Field numbers and message shapes match the upstream protobufs exactly, so
+// this generated client talks to a stock tritonserver without importing the
+// full multi-MB generated tree into the gateway binary.
+// Upstream: github.com/triton-inference-server/protobuf_backend grpc_service.proto
+service GRPCInferenceService {
+  rpc ModelInfer(ModelInferRequest) returns (ModelInferResponse) {}
+  rpc ServerLive(ServerLiveRequest) returns (ServerLiveResponse) {}
+  rpc ModelReady(ModelReadyRequest) returns (ModelReadyResponse) {}
+}
+
+message ServerLiveRequest {}
+message ServerLiveResponse {
+  bool live = 1;
+}
+
+message ModelReadyRequest {
+  string name = 1;
+  string version = 2;
+}
+message ModelReadyResponse {
+  bool ready = 1;
+}
+
+message InferenceTensorContents {
+  repeated int32 int_contents = 1;
+  repeated int64 int64_contents = 2;
+  repeated uint32 uint_contents = 3;
+  repeated uint64 uint64_contents = 4;
+  repeated float fp32_contents = 5;
+  repeated bytes bytes_contents = 6;
+}
+
+message ModelInferRequest {
+  message InferInputTensor {
+    string name = 1;
+    string datatype = 2;
+    repeated int64 shape = 3;
+    map<string, string> parameters = 4;
+    InferenceTensorContents contents = 5;
+    // raw_input_contents parallels `contents`; index i holds tensor i's bytes.
+  }
+  message InferRequestedOutputTensor {
+    string name = 1;
+    map<string, string> parameters = 2;
+  }
+
+  string model_name = 1;
+  string model_version = 2;
+  string id = 3;
+  map<string, string> parameters = 4;
+  repeated InferInputTensor inputs = 5;
+  repeated InferRequestedOutputTensor outputs = 6;
+  repeated bytes raw_input_contents = 7;
+}
+
+message ModelInferResponse {
+  message InferOutputTensor {
+    string name = 1;
+    string datatype = 2;
+    repeated int64 shape = 3;
+    map<string, string> parameters = 4;
+    InferenceTensorContents contents = 5;
+  }
+
+  string model_name = 1;
+  string model_version = 2;
+  string id = 3;
+  map<string, string> parameters = 4;
+  repeated InferOutputTensor outputs = 5;
+  repeated bytes raw_output_contents = 6;
+}

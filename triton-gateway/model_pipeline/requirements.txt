@@ -1,0 +1,7 @@
+torch>=2.2,<3
+transformers>=4.40,<5
+onnx>=1.16
+onnxconverter-common>=1.14
+numpy>=1.26
+pytest>=8
+ruff>=0.4

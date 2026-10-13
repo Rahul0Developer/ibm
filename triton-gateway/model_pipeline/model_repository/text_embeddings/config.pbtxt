@@ -1,0 +1,55 @@
+name: "text_embeddings"
+platform: "onnxruntime_onnx"
+max_batch_size: 64
+
+input [
+  {
+    name: "input_ids"
+    data_type: TYPE_INT64
+    dims: [ -1 ]
+  },
+  {
+    name: "attention_mask"
+    data_type: TYPE_INT64
+    dims: [ -1 ]
+  }
+]
+
+output [
+  {
+    name: "sentence_embedding"
+    data_type: TYPE_FP16
+    dims: [ 384 ]
+  }
+]
+
+# Collects individual concurrent requests into unified GPU tensor batches.
+# 5 ms window is the sweet spot found by perf_analyzer sweeps (see docs/BENCHMARKS.md):
+# larger windows push p99 past the 30 ms SLA, smaller ones starve the tensor cores.
+dynamic_batching {
+  max_queue_delay_microseconds: 5000
+  preferred_batch_size: [ 8, 16, 32, 64 ]
+}
+
+# Two concurrent engine instances per GPU hide H2D/D2H memcpy latency behind
+# compute — DCGM duty cycle climbs from ~45% to 75%+ at equal QPS.
+instance_group [
+  {
+    count: 2
+    kind: KIND_GPU
+    gpus: [ 0 ]
+  }
+]
+
+# Version policy: explicit so the S3 init-container sync can roll versions
+# without Triton auto-discovery races during rollout.
+version_policy: { specific: { versions: [1] } }
+
+# Reject oversized payloads before they ever touch the GPU queue.
+max_input_size: 1048576
+constraints [
+  {
+    key: "GPU-MEMORY-FRACTION"
+    value: "0.4"
+  }
+]
