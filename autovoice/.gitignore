@@ -1,0 +1,61 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.uv/
+uv.lock.bak
+
+# ---- Secrets / local config (NEVER commit) ----
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+service-account*.json
+credentials*.json
+.token
+
+# ---- Data: large / derived artifacts are gitignored ----
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+models/
+*.parquet
+*.arrow
+*.bin
+*.safetensors
+*.onnx
+*.ckpt
+
+# Keep the small labeled gold set committed:
+!data/labeled/*.jsonl
+!data/labeled/*.csv
+
+# ---- Reports: generated; keep sample files explicitly if needed ----
+reports/*
+!reports/.gitkeep
+!reports/metrics.json
+!reports/ner_metrics.json
+!reports/clf_metrics.json
+!reports/rag_metrics.json
+!reports/latency.json
+
+# ---- Tooling caches ----
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# ---- OS / editor ----
+.DS_Store
+.idea/
+.vscode/
+*.swp

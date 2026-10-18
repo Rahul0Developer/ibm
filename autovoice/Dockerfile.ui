@@ -1,0 +1,8 @@
+# Placeholder Streamlit UI image. PHASE 8 finalizes it (PORT honored,
+# --server.address=0.0.0.0, slim deps only).
+FROM python:3.11-slim AS base
+RUN pip install --no-cache-dir uv
+WORKDIR /app
+COPY . .
+EXPOSE 8501
+CMD ["echo", "AutoVoice UI Dockerfile.ui finalized in Phase 8"]

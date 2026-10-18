@@ -1,0 +1,118 @@
+# AutoVoice - Automotive Complaint Intelligence on GCP.
+# Dependency management: uv (https://docs.astral.sh/uv/), Python 3.11.
+# Groups map to the phases of the build: core / train / serve / ui / dev.
+
+[project]
+name = "autovoice"
+version = "0.1.0"
+description = "NER, severity classification and a RAG agent over public NHTSA vehicle complaints, served on GCP Cloud Run within the Always Free tier."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "AutoVoice authors" }]
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    # ---- core (always installed; boring, small, reliable) ----
+    "pydantic==2.11.7",
+    "pydantic-settings==2.10.1",
+    "python-dotenv==1.0.1",
+    "structlog==25.4.0",
+    "typer==0.16.0",
+    "rich==14.0.0",
+    "httpx==0.28.1",
+    "tenacity==9.1.2",
+    "PyYAML==6.0.2",
+]
+
+[dependency-groups]
+# ---- training only (Colab/Kaggle GPU). NEVER installed in the serving image ----
+train = [
+    "torch==2.3.1",              # Colab-provided CUDA build is compatible
+    "transformers==4.53.2",   # verified working in sandbox w/ torch 2.7; pinned for reproducibility
+    "accelerate==1.15.0",     # required by HF Trainer (found missing during Phase 3 local run)
+    "datasets==3.1.0",
+    "seqeval==1.2.2",
+    "scikit-learn==1.5.2",
+    "pandas==2.2.3",
+    "numpy==1.26.4",
+    "pyarrow==18.1.0",
+    "jinja2==3.1.4",
+]
+
+# ---- serving (CPU-only torch to keep the Cloud Run image small & free) ----
+serve = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+    "torch==2.3.1+cpu",
+    "transformers==4.53.2",
+    "sentence-transformers==3.3.1",
+    "chromadb==0.5.23",
+    "langgraph==0.2.60",
+    "langchain-core==0.3.28",
+    "google-cloud-bigquery==3.27.0",
+    "duckdb==1.1.3",
+    "evidently==0.4.82",
+    "pandas==2.2.3",
+    "numpy==1.26.4",
+    "pyarrow==18.1.0",
+]
+
+# ---- Streamlit UI image ----
+ui = [
+    "streamlit==1.41.1",
+]
+
+# ---- development / CI ----
+dev = [
+    "pytest==8.3.4",
+    "pytest-cov==6.0.0",
+    "httpx==0.28.1",
+    "ruff==0.17.1",
+    "pre-commit==4.0.1",
+]
+
+[tool.uv]
+# CPU-only wheel index for torch in the serve group (documented in docs/deployment.md)
+environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", group = "serve" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/autovoice"]
+
+# ---------------------------- tooling config ------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "D"]
+ignore = ["D203", "D213"]  # docstring style: use google convention
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]       # no docstring requirement in tests
+"notebooks/*" = ["D"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["error::DeprecationWarning:autovoice.*"]
+
+[tool.coverage.run]
+source = ["src/autovoice"]

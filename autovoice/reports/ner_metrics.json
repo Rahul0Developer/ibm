@@ -1,0 +1,28 @@
+{
+  "gold_test_file": "/workspace/autovoice/data/labeled/gold_test_provisional.jsonl",
+  "gold_test_size": 50,
+  "gold_provenance": "provisional-silver (NOT human-verified)",
+  "evaluation_policy": "metrics computed on gold ONLY; silver used for training only",
+  "baseline_rules": {
+    "per_entity": {
+      "COMPONENT": {
+        "precision": 1.0,
+        "recall": 0.7073170731707317,
+        "f1-score": 0.8285714285714285,
+        "support": 123.0
+      },
+      "SYMPTOM": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 65.0
+      }
+    },
+    "micro_f1": 0.8941176470588235,
+    "macro_f1": 0.9142857142857143,
+    "weighted_f1": 0.8878419452887538
+  },
+  "model": {
+    "error": "no --model-dir provided; baseline-only run"
+  }
+}
