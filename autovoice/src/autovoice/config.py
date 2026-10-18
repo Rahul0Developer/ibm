@@ -20,6 +20,7 @@ DATA_RAW_DIR = REPO_ROOT / "data" / "raw"
 DATA_PROCESSED_DIR = REPO_ROOT / "data" / "processed"
 DATA_LABELED_DIR = REPO_ROOT / "data" / "labeled"
 REPORTS_DIR = REPO_ROOT / "reports"
+MODELS_DIR = REPO_ROOT / "models"
 
 
 class Settings(BaseSettings):

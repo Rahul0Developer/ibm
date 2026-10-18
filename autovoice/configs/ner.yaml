@@ -1,0 +1,13 @@
+# AutoVoice NER training config (Phase 3). Loaded by autovoice.ner.train.
+# Determinism: seed fixed; resolved config is saved next to the weights.
+model_name: distilbert-base-uncased        # CPU-friendly; bert-base-uncased optional on Colab GPU
+entity_types: [COMPONENT, SYMPTOM]         # VEHICLE_PART_LOCATION dropped unless it helps gold F1
+silver_path: data/labeled/silver_ner.jsonl # weak labels - TRAINING ONLY
+output_dir: models/ner-distilbert
+learning_rate: 0.00005
+per_device_train_batch_size: 16
+num_epochs: 4
+max_seq_len: 128
+weight_decay: 0.01
+warmup_ratio: 0.1
+seed: 42
