@@ -52,7 +52,9 @@ def configure_logging(level: str = "INFO", json_logs: bool = True) -> None:
         wrapper_class=structlog.make_filtering_bound_logger(
             getattr(logging, level.upper(), logging.INFO)
         ),
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stdout),
+        # sys.stdout is resolved lazily so captured/redirected streams (pytest)
+        # never leave a closed-file handle behind.
+        logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
     )
     _CONFIGURED = True
